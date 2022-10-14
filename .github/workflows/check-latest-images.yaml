@@ -1,0 +1,48 @@
+name: Update sample build strategy images.
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-new-versions:
+    name: Update sample build strategy images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Check and modify kaniko image version
+        env:
+          IMAGE: gcr.io/kaniko-project/executor
+          LATEST_RELEASE: https://api.github.com/repos/GoogleContainerTools/kaniko/releases/latest
+        run: |
+          for directory in samples test; do hack/check-latest-images.sh ${IMAGE} ${LATEST_RELEASE} ${directory}; done
+      - name: Check trivy image versions
+        env:
+          IMAGE: docker.io/aquasec/trivy
+          LATEST_RELEASE: https://api.github.com/repos/aquasecurity/trivy/releases/latest
+        run: |
+          for directory in samples; do hack/check-latest-images.sh ${IMAGE} ${LATEST_RELEASE} ${directory}; done
+      - name: Compare and modify buildah image version
+        env:
+          IMAGE: quay.io/containers/buildah
+          LATEST_RELEASE: https://api.github.com/repos/containers/buildah/releases/latest
+        run: |
+          for directory in samples test; do hack/check-latest-images.sh ${IMAGE} ${LATEST_RELEASE} ${directory}; done
+      - name: Compare and modify crane image version
+        env:
+          IMAGE: gcr.io/go-containerregistry/crane
+          LATEST_RELEASE: https://api.github.com/repos/go-containerregistry/crane/releases/latest
+        run: |
+          for directory in samples; do hack/check-latest-images.sh ${IMAGE} ${LATEST_RELEASE} ${directory}; done
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          commit-message: Update sample build strategy images
+          title: Update all the sample build strategy images to their latest version.
+          body: |
+            Execute `hack/check-latest-images.sh` and update Kaniko, Trivy, Buildah and Crane container images used in the sample build strategies to their latest versions.
+          labels: automated pr, update
+          branch: update-images
+          delete-branch: true
